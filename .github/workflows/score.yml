@@ -1,0 +1,77 @@
+name: LeetCode Exam - Score
+
+# 每周五判分 + 报告 + 更新看板：北京时间 17:30 = UTC 09:30
+on:
+  schedule:
+    - cron: '30 9 * * 5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 判分（考试窗口内 AC 判定）
+        env:
+          LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
+          LEETCODE_CSRF: ${{ secrets.LEETCODE_CSRF }}
+        run: python3 exam_tool.py score --date "$(TZ=Asia/Shanghai date +%F)"
+
+      - name: 生成报告（CSV + Markdown）
+        run: python3 exam_tool.py report --date "$(TZ=Asia/Shanghai date +%F)"
+
+      - name: 生成网页看板
+        run: python3 dashboard/generate_dashboard.py
+
+      - name: 持久化结果与看板
+        run: |
+          git config user.name "leetcode-exam-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f exams.db problems_cache.json reports
+          git add dashboard/index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "exam: 统计 $(TZ=Asia/Shanghai date +%F) 周考成绩并更新看板"
+            git push
+          else
+            echo "无变更，跳过提交"
+          fi
+
+      - name: 钉钉通知成绩
+        env:
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+        run: python3 exam_tool.py notify --type results
+
+  deploy:
+    needs: score
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 配置 GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传看板
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,4 @@
+exams.db
+problems_cache.json
+reports/
+__pycache__/

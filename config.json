@@ -1,0 +1,21 @@
+{
+  "employees": [],
+  "exam": {
+    "day_of_week": 4,
+    "start_time": "09:00",
+    "end_time": "17:00",
+    "timezone": "Asia/Shanghai"
+  },
+  "difficulties": {
+    "EASY": 2,
+    "MEDIUM": 2,
+    "HARD": 1
+  },
+  "notify": {
+    "dashboard_url": "https://chilltycho.github.io/leetcode-exam/",
+    "dingtalk": {
+      "webhook": "",
+      "secret": ""
+    }
+  }
+}

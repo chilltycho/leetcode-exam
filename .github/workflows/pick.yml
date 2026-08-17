@@ -1,0 +1,47 @@
+name: LeetCode Exam - Pick
+
+# 每周五自动抽题：北京时间 09:00 = UTC 01:00
+on:
+  schedule:
+    - cron: '0 1 * * 5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 抽取本周考题（2 easy + 2 medium + 1 hard，不与历史重复）
+        env:
+          LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
+          LEETCODE_CSRF: ${{ secrets.LEETCODE_CSRF }}
+        run: python3 exam_tool.py pick --date "$(TZ=Asia/Shanghai date +%F)"
+
+      - name: 持久化题库与历史（保证下轮不重复）
+        run: |
+          git config user.name "leetcode-exam-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f exams.db problems_cache.json
+          if ! git diff --cached --quiet; then
+            git commit -m "exam: 抽取 $(TZ=Asia/Shanghai date +%F) 周考题"
+            git push
+          else
+            echo "无变更，跳过提交"
+          fi
+
+      - name: 钉钉通知考题
+        env:
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+        run: python3 exam_tool.py notify --type problems
