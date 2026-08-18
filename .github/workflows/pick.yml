@@ -5,6 +5,12 @@ on:
   schedule:
     - cron: '0 1 * * 5'
   workflow_dispatch:
+    inputs:
+      force:
+        description: '同日期已抽过时强制重新抽题（手动测试用）'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -26,7 +32,7 @@ jobs:
         env:
           LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
           LEETCODE_CSRF: ${{ secrets.LEETCODE_CSRF }}
-        run: python3 exam_tool.py pick --date "$(TZ=Asia/Shanghai date +%F)"
+        run: python3 exam_tool.py pick --date "$(TZ=Asia/Shanghai date +%F)" ${{ inputs.force == 'true' && '--force' || '' }}
 
       - name: 持久化题库与历史（保证下轮不重复）
         run: |
