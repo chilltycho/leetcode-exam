@@ -5,12 +5,6 @@ on:
   schedule:
     - cron: '30 9 * * 5'
   workflow_dispatch:
-    inputs:
-      force:
-        description: '考试截止前强制执行（手动测试用，结果可能不完整）'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: write
@@ -34,7 +28,8 @@ jobs:
         env:
           LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
           LEETCODE_CSRF: ${{ secrets.LEETCODE_CSRF }}
-        run: python3 exam_tool.py score --date "$(TZ=Asia/Shanghai date +%F)" ${{ inputs.force == 'true' && '--force' || '' }}
+        # 手动触发自动加 --force（截止前也可测试）；定时触发不加
+        run: python3 exam_tool.py score --date "$(TZ=Asia/Shanghai date +%F)" ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }}
 
       - name: 生成报告（CSV + Markdown）
         run: python3 exam_tool.py report --date "$(TZ=Asia/Shanghai date +%F)"
