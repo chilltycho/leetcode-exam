@@ -4,7 +4,7 @@
 
 ```
 抽题 pick ──→ 员工用自己账号在考试窗口内提交 ──→ 判分 score ──→ 报告 report
-（周五 09:00）                                    （截止后运行）
+（周五 17:00）                                    （截止后运行）
 ```
 
 ## 依赖
@@ -25,8 +25,8 @@
    {
      "exam": {
        "day_of_week": 4,
-       "start_time": "08:00",
-       "end_time": "17:00",
+"start_time": "17:00",
+        "end_time": "21:00",
        "timezone": "Asia/Shanghai"
      },
      "difficulties": { "EASY": 2, "MEDIUM": 2, "HARD": 1 }
@@ -38,7 +38,7 @@
 4. **每周五流程**：
 
    ```bash
-   # 周五 09:00：抽题（默认取当天日期），输出 5 道题链接，发给员工
+   # 周五 17:00：抽题（默认取当天日期），输出 5 道题链接，发给员工
    python exam_tool.py pick
 
    # 截止时间后：判分（--force 表示截止未到也强制统计）
@@ -51,10 +51,10 @@
 4. **自动定时**：推荐直接使用仓库内置的 **GitHub Actions**（见下文「部署」），无需自建服务器；本地服务器则用 cron：
 
    ```cron
-   # 每周五 09:00 抽题并写入日志
-   0 9  * * 5  cd /path/to/leetcode-exam && python3 exam_tool.py pick >> run.log 2>&1
-   # 每周五 17:30 判分 + 生成报告
-   30 17 * * 5 cd /path/to/leetcode-exam && python3 exam_tool.py score >> run.log 2>&1 && python3 exam_tool.py report >> run.log 2>&1
+   # 每周五 17:00 抽题并写入日志
+   0 17 * * 5 cd /path/to/leetcode-exam && python3 exam_tool.py pick >> run.log 2>&1
+   # 每周五 21:30 判分 + 生成报告
+   30 21 * * 5 cd /path/to/leetcode-exam && python3 exam_tool.py score >> run.log 2>&1 && python3 exam_tool.py report >> run.log 2>&1
    ```
 
 ## 部署：GitHub Actions + 网页看板 + 钉钉通知
@@ -63,8 +63,8 @@
 
 | 触发 | 北京时间 | 动作 |
 |---|---|---|
-| `pick.yml` | 每周五 09:00 | 抽题 → 提交 `exams.db`（保证不重复）→ 钉钉发题目 |
-| `score.yml` | 每周五 17:30 | 判分 → 生成报告 → 更新网页看板 → 部署 Pages → 钉钉发成绩 |
+| `pick.yml` | 每周五 17:00 | 抽题 → 提交 `exams.db`（保证不重复）→ 钉钉发题目 |
+| `score.yml` | 每周五 21:30 | 判分 → 生成报告 → 更新网页看板 → 部署 Pages → 钉钉发成绩 |
 
 两个 workflow 都支持 `workflow_dispatch`（Actions 页面手动触发），首次部署可手动跑一遍验证。
 
@@ -157,6 +157,6 @@ leetcode-exam/              # 本仓库根目录
 └── reports/                # 成绩报告输出（已 gitignore）
 
 .github/workflows/
-├── pick.yml                # 周五 09:00 抽题 + 通知
-└── score.yml               # 周五 17:30 判分 + 看板 + 通知 + 部署 Pages
+├── pick.yml                # 周五 17:00 抽题 + 通知
+└── score.yml               # 周五 21:30 判分 + 看板 + 通知 + 部署 Pages
 ```

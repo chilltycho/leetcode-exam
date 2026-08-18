@@ -1,9 +1,9 @@
 name: LeetCode Exam - Pick
 
-# 每周五自动抽题：北京时间 09:00 = UTC 01:00
+# 每周五自动抽题：北京时间 17:00 = UTC 09:00
 on:
   schedule:
-    - cron: '0 1 * * 5'
+    - cron: '0 9 * * 5'
   workflow_dispatch:
 
 permissions:
