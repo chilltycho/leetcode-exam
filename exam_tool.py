@@ -406,8 +406,9 @@ def cmd_score(args):
 
     now_ts = int(time.time())
     if now_ts < end_ts and not args.force:
-        print(f"[!] 现在（{datetime.fromtimestamp(now_ts).strftime('%Y-%m-%d %H:%M:%S')}）早于考试截止"
-              f"（{datetime.fromtimestamp(end_ts).strftime('%Y-%m-%d %H:%M:%S')}），成绩不完整，如需强制执行请加 --force")
+        tz = ZoneInfo(cfg["exam"]["timezone"])
+        print(f"[!] 现在（{datetime.fromtimestamp(now_ts, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}）早于考试截止"
+              f"（{datetime.fromtimestamp(end_ts, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}），成绩不完整，如需强制执行请加 --force")
         conn.close()
         return 1
 
