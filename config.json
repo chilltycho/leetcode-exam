@@ -4,6 +4,7 @@
     "day_of_week": 4,
     "start_time": "17:00",
     "end_time": "21:00",
+    "score_cutoff": "21:05",
     "timezone": "Asia/Shanghai"
   },
   "difficulties": {

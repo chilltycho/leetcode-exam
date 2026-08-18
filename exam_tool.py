@@ -404,25 +404,26 @@ def cmd_score(args):
         return 1
     exam_id, exam_date, start_ts, end_ts = exam
 
-    # 判分规则：考试当天（00:00~23:59）内的 AC 提交均计入，不限定考试窗口
+    # 判分规则：考试当天 00:00 起，至 score_cutoff（默认 21:05）前的 AC 提交均计入
     tz = ZoneInfo(cfg["exam"]["timezone"])
     day_start = int(datetime.fromisoformat(f"{exam_date} 00:00:00").replace(tzinfo=tz).timestamp())
-    day_end = int(datetime.fromisoformat(f"{exam_date} 23:59:59").replace(tzinfo=tz).timestamp())
+    cutoff = cfg["exam"].get("score_cutoff", "21:05")
+    cutoff_ts = int(datetime.fromisoformat(f"{exam_date} {cutoff}").replace(tzinfo=tz).timestamp())
 
     now_ts = int(time.time())
-    if now_ts < day_end and not args.force:
-        print(f"[!] 现在（{datetime.fromtimestamp(now_ts, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}）早于考试当天结束"
-              f"（{datetime.fromtimestamp(day_end, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}），成绩不完整，如需强制执行请加 --force")
+    if now_ts < cutoff_ts and not args.force:
+        print(f"[!] 现在（{datetime.fromtimestamp(now_ts, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}）早于判分截止"
+              f"（{datetime.fromtimestamp(cutoff_ts, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}），成绩不完整，如需强制执行请加 --force")
         conn.close()
         return 1
 
     problem_slugs = [r[0] for r in conn.execute("SELECT title_slug FROM exam_problems WHERE exam_id = ?", (exam_id,))]
-    print(f"\n===== {exam_date} 成绩统计（当天 AC 判定）=====")
+    print(f"\n===== {exam_date} 成绩统计（当天 {cutoff} 前 AC 判定）=====")
 
     for emp in load_employees():
         name, slug = emp["name"], emp["slug"]
         try:
-            ac_map = fetch_window_ac(slug, day_start, day_end)
+            ac_map = fetch_window_ac(slug, day_start, cutoff_ts)
         except Exception as e:
             print(f"  [!!] {name}({slug}) 拉取失败：{e}（按未通过计）")
             ac_map = {}

@@ -1,9 +1,9 @@
 name: LeetCode Exam - Score
 
-# 每周五判分 + 报告 + 更新看板：考试次日 00:30（北京时间）= 周五 16:30 UTC
+# 每周五判分 + 报告 + 更新看板：北京时间 21:05 = UTC 13:05（只统计 21:05 前提交）
 on:
   schedule:
-    - cron: '30 16 * * 5'
+    - cron: '5 13 * * 5'
   workflow_dispatch:
 
 permissions:
