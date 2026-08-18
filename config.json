@@ -16,6 +16,10 @@
     "dingtalk": {
       "webhook": "",
       "secret": ""
+    },
+    "dingtalk_early": {
+      "webhook": "",
+      "secret": ""
     }
   }
 }

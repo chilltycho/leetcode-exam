@@ -512,13 +512,14 @@ def cmd_report(args):
 DIFF_EMOJI = {"EASY": "🟢", "MEDIUM": "🟡", "HARD": "🔴"}
 
 
-def get_notify_env(key, cfg_key):
-    """优先取环境变量（CI 中用 secrets 注入），其次取 config.json。"""
+def get_notify_env(key, cfg_key, robot="main"):
+    """优先取环境变量（CI 中用 secrets 注入），其次取 config.json。robot=early 时读取 dingtalk_early 配置。"""
     cfg = load_config()
     val = os.environ.get(key)
     if val:
         return val
-    return (cfg.get("notify") or {}).get("dingtalk") or {}.get(cfg_key)
+    section = (cfg.get("notify") or {}).get("dingtalk_early" if robot == "early" else "dingtalk") or {}
+    return section.get(cfg_key)
 
 
 def build_problems_markdown(cfg, exam_date, problems):
@@ -529,7 +530,7 @@ def build_problems_markdown(cfg, exam_date, problems):
         slug, title, title_cn, frontend_id, difficulty, url = p
         lines.append(f"{i}. {DIFF_EMOJI.get(difficulty, '')} [{frontend_id}. {title_cn}（{title}）]({url})")
     lines.append("")
-    lines.append("请在考试窗口内，用**自己的账号**打开上方链接提交并 AC。")
+    lines.append("请在考试当天内，用**自己的账号**打开上方链接提交并 AC。")
     return "\n".join(lines)
 
 
@@ -550,7 +551,7 @@ def build_results_markdown(employees, exam_date, problems, results, dashboard_ur
         medal = medals[idx] if idx < len(medals) else "  "
         lines.append(f"{medal} {name}（{slug}）：**{n}/{len(problems)}** 通过")
     lines.append("")
-    lines.append(f"共 {len(problems)} 题，仅统计考试窗口内 AC。")
+    lines.append(f"共 {len(problems)} 题，统计考试当天内 AC。")
     if dashboard_url:
         lines.append(f"\n📊 [查看完整看板]({dashboard_url})")
     return "\n".join(lines)
@@ -576,11 +577,13 @@ def send_dingtalk(webhook, secret, title, text):
 
 def cmd_notify(args):
     cfg = load_config()
-    webhook = get_notify_env("DINGTALK_WEBHOOK", "webhook")
+    robot = getattr(args, "robot", "main")
+    prefix = "DINGTALK_EARLY_" if robot == "early" else "DINGTALK_"
+    webhook = get_notify_env(prefix + "WEBHOOK", "webhook", robot)
     if not webhook:
-        print("[!] 未配置 DINGTALK_WEBHOOK（环境变量或 config.json 的 notify.dingtalk.webhook），跳过通知")
+        print(f"[!] 未配置 {prefix}WEBHOOK（环境变量或 config.json 的 notify.{'dingtalk_early' if robot == 'early' else 'dingtalk'}.webhook），跳过通知")
         return 0
-    secret = get_notify_env("DINGTALK_SECRET", "secret")
+    secret = get_notify_env(prefix + "SECRET", "secret", robot)
     dashboard_url = (cfg.get("notify") or {}).get("dashboard_url")
 
     conn = init_db()
@@ -663,6 +666,8 @@ def main():
     p.add_argument("--type", choices=["problems", "results"], required=True, help="通知内容：考题 or 成绩")
     p.add_argument("--date", help="考试日期（默认最近一次）")
     p.add_argument("--dry-run", action="store_true", help="只打印消息内容，不发送")
+    p.add_argument("--robot", choices=["main", "early"], default="main",
+                   help="机器人：main=原机器人（17:00 考试信息），early=提前通知机器人（09:00 题目）")
 
     p = sub.add_parser("verify", help="校验 config.json 中员工账号是否存在")
     p = sub.add_parser("add-employee", help="添加员工")

@@ -1,9 +1,9 @@
 name: LeetCode Exam - Pick
 
-# 每周五自动抽题：北京时间 17:00 = UTC 09:00
+# 每周五 09:00 提前抽题并通知「提前通知机器人」；17:00 由 notify-exam.yml 通知原机器人
 on:
   schedule:
-    - cron: '0 9 * * 5'
+    - cron: '1 1 * * 5'
   workflow_dispatch:
 
 permissions:
@@ -41,8 +41,8 @@ jobs:
             echo "无变更，跳过提交"
           fi
 
-      - name: 钉钉通知考题
+      - name: 钉钉通知考题（提前通知机器人）
         env:
-          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
-          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
-        run: python3 exam_tool.py notify --type problems
+          DINGTALK_EARLY_WEBHOOK: ${{ secrets.DINGTALK_EARLY_WEBHOOK }}
+          DINGTALK_EARLY_SECRET: ${{ secrets.DINGTALK_EARLY_SECRET }}
+        run: python3 exam_tool.py notify --type problems --robot early

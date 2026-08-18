@@ -51,22 +51,25 @@
 4. **自动定时**：推荐直接使用仓库内置的 **GitHub Actions**（见下文「部署」），无需自建服务器；本地服务器则用 cron：
 
    ```cron
-   # 每周五 17:00 抽题并写入日志
-   0 17 * * 5 cd /path/to/leetcode-exam && python3 exam_tool.py pick >> run.log 2>&1
+   # 每周五 09:00 抽题并通知提前机器人
+   0 9 * * 5 cd /path/to/leetcode-exam && python3 exam_tool.py pick >> run.log 2>&1 && DINGTALK_EARLY_WEBHOOK=xxx python3 exam_tool.py notify --type problems --robot early >> run.log 2>&1
+   # 每周五 17:00 通知原机器人考试信息
+   0 17 * * 5 cd /path/to/leetcode-exam && DINGTALK_WEBHOOK=xxx python3 exam_tool.py notify --type problems >> run.log 2>&1
    # 每周六 00:30 判分 + 生成报告（考试当天结束后）
    30 0 * * 6 cd /path/to/leetcode-exam && python3 exam_tool.py score >> run.log 2>&1 && python3 exam_tool.py report >> run.log 2>&1
    ```
 
 ## 部署：GitHub Actions + 网页看板 + 钉钉通知
 
-仓库已内置 `.github/workflows/pick.yml` 与 `score.yml`，推送后即可使用：
+仓库已内置 `.github/workflows/pick.yml`、`notify-exam.yml` 与 `score.yml`，推送后即可使用：
 
 | 触发 | 北京时间 | 动作 |
 |---|---|---|
-| `pick.yml` | 每周五 17:00 | 抽题 → 提交 `exams.db`（保证不重复）→ 钉钉发题目 |
+| `pick.yml` | 每周五 09:00 | 抽题 → 提交 `exams.db`（保证不重复）→ **提前通知机器人**发题目 |
+| `notify-exam.yml` | 每周五 17:00 | **原机器人**发考试信息（17:00-21:00 考试） |
 | `score.yml` | 每周六 00:30 | 判分 → 生成报告 → 更新网页看板 → 部署 Pages → 钉钉发成绩 |
 
-两个 workflow 都支持 `workflow_dispatch`（Actions 页面手动触发），首次部署可手动跑一遍验证。
+三个 workflow 都支持 `workflow_dispatch`（Actions 页面手动触发），首次部署可手动跑一遍验证。
 
 ### 一次性配置
 
@@ -76,13 +79,15 @@
 
    | Secret | 必填 | 说明 |
    |---|---|---|
-   | `DINGTALK_WEBHOOK` | 推荐 | 钉钉机器人 Webhook 地址（见下） |
-   | `DINGTALK_SECRET` | 按需 | 机器人开启「加签」时的密钥 |
+   | `DINGTALK_WEBHOOK` | 推荐 | 原机器人 Webhook 地址（17:00 发考试信息用，见下） |
+   | `DINGTALK_SECRET` | 按需 | 原机器人开启「加签」时的密钥 |
+   | `DINGTALK_EARLY_WEBHOOK` | 按需 | 提前通知机器人 Webhook（09:00 发题目用，第二个机器人） |
+   | `DINGTALK_EARLY_SECRET` | 按需 | 提前通知机器人加签密钥 |
    | `LEETCODE_SESSION` | 按需 | 浏览器登录 leetcode.cn 后的 Cookie（见下） |
    | `LEETCODE_CSRF` | 按需 | 同上，`csrftoken` 值 |
 
-4. **钉钉机器人**：钉钉群 → 群设置 → 智能群助手 → 添加机器人 → 自定义机器人 → 复制 Webhook。若开启「加签」，把密钥填入 `DINGTALK_SECRET`。机器人安全设置建议至少保留「加签」或自定义关键词（如「周考」）。
-5. 打开 Actions 页面，手动运行一次两个 workflow 验证。
+4. **钉钉机器人**：钉钉群 → 群设置 → 智能群助手 → 添加机器人 → 自定义机器人 → 复制 Webhook。若开启「加签」，把密钥填入对应 `DINGTALK_SECRET` / `DINGTALK_EARLY_SECRET`。机器人安全设置建议至少保留「加签」或自定义关键词（如「周考」）。需要两个机器人时，在另一个群再添加一个，Webhook 填入 `DINGTALK_EARLY_WEBHOOK`。
+5. 打开 Actions 页面，手动运行一次三个 workflow 验证。
 
 ### 关于 LEETCODE_SESSION（重要）
 
@@ -100,9 +105,15 @@ GitHub Actions 运行在**机房 IP**，leetcode.cn 的 Cloudflare 风控可能�
 不发全量流程、只想手动推送通知时：
 
 ```bash
+# 原机器人（17:00 考试信息 / 成绩）
 DINGTALK_WEBHOOK="https://oapi.dingtalk.com/robot/send?access_token=xxx" \
 DINGTALK_SECRET="可选加签密钥" \
 python3 exam_tool.py notify --type problems   # 或 results，加 --dry-run 只预览不发送
+
+# 提前通知机器人（09:00 题目）
+DINGTALK_EARLY_WEBHOOK="https://oapi.dingtalk.com/robot/send?access_token=yyy" \
+DINGTALK_EARLY_SECRET="可选加签密钥" \
+python3 exam_tool.py notify --type problems --robot early
 ```
 
 ## 命令参考
@@ -112,7 +123,7 @@ python3 exam_tool.py notify --type problems   # 或 results，加 --dry-run 只�
 | `pick [--date YYYY-MM-DD] [--force]` | 抽题：2 easy + 2 medium + 1 hard，自动排除历次已用题目。`--force` 用于同日期已抽过时强制重抽 |
 | `score [--date YYYY-MM-DD] [--force]` | 判分：对每位员工拉取最近 AC 提交，判断 5 题是否在**考试当天（00:00~23:59）**内 AC（不限定考试窗口）。考试当天未结束会拒绝执行（除非 `--force`） |
 | `report [--date YYYY-MM-DD]` | 生成 `reports/日期_成绩.csv`（Excel 可直接打开）与 Markdown 报告 |
-| `notify --type problems\|results [--date] [--dry-run]` | 发送钉钉机器人通知（考题 / 成绩），webhook 取环境变量 `DINGTALK_WEBHOOK`（其次 config.json） |
+| `notify --type problems\|results [--date] [--robot main\|early] [--dry-run]` | 发送钉钉机器人通知（考题 / 成绩）。`--robot early` 用提前通知机器人（`DINGTALK_EARLY_WEBHOOK`），默认 main（`DINGTALK_WEBHOOK`）；webhook 取环境变量（其次 config.json） |
 | `verify` | 校验员工名单（users.md）中所有账号是否存在 |
 | `add-employee --name 姓名 --slug 用户名` | 向 config.json 追加员工（仅当不使用 users.md 时） |
 
@@ -157,6 +168,7 @@ leetcode-exam/              # 本仓库根目录
 └── reports/                # 成绩报告输出（已 gitignore）
 
 .github/workflows/
-├── pick.yml                # 周五 17:00 抽题 + 通知
-└── score.yml               # 周五 21:30 判分 + 看板 + 通知 + 部署 Pages
+├── pick.yml                # 周五 09:00 抽题 + 提前通知机器人发题
+├── notify-exam.yml         # 周五 17:00 原机器人发考试信息
+└── score.yml               # 周六 00:30 判分 + 看板 + 通知 + 部署 Pages
 ```
