@@ -41,7 +41,7 @@
    # 周五 17:00：抽题（默认取当天日期），输出 5 道题链接，发给员工
    python exam_tool.py pick
 
-   # 截止时间后：判分（--force 表示截止未到也强制统计）
+   # 考试当天结束后：判分（--force 表示当天未结束也强制统计）
    python exam_tool.py score
 
    # 生成报告（reports/日期_成绩.csv 与 .md，同时打印到终端）
@@ -53,8 +53,8 @@
    ```cron
    # 每周五 17:00 抽题并写入日志
    0 17 * * 5 cd /path/to/leetcode-exam && python3 exam_tool.py pick >> run.log 2>&1
-   # 每周五 21:30 判分 + 生成报告
-   30 21 * * 5 cd /path/to/leetcode-exam && python3 exam_tool.py score >> run.log 2>&1 && python3 exam_tool.py report >> run.log 2>&1
+   # 每周六 00:30 判分 + 生成报告（考试当天结束后）
+   30 0 * * 6 cd /path/to/leetcode-exam && python3 exam_tool.py score >> run.log 2>&1 && python3 exam_tool.py report >> run.log 2>&1
    ```
 
 ## 部署：GitHub Actions + 网页看板 + 钉钉通知
@@ -64,7 +64,7 @@
 | 触发 | 北京时间 | 动作 |
 |---|---|---|
 | `pick.yml` | 每周五 17:00 | 抽题 → 提交 `exams.db`（保证不重复）→ 钉钉发题目 |
-| `score.yml` | 每周五 21:30 | 判分 → 生成报告 → 更新网页看板 → 部署 Pages → 钉钉发成绩 |
+| `score.yml` | 每周六 00:30 | 判分 → 生成报告 → 更新网页看板 → 部署 Pages → 钉钉发成绩 |
 
 两个 workflow 都支持 `workflow_dispatch`（Actions 页面手动触发），首次部署可手动跑一遍验证。
 
@@ -110,7 +110,7 @@ python3 exam_tool.py notify --type problems   # 或 results，加 --dry-run 只�
 | 命令 | 说明 |
 |---|---|
 | `pick [--date YYYY-MM-DD] [--force]` | 抽题：2 easy + 2 medium + 1 hard，自动排除历次已用题目。`--force` 用于同日期已抽过时强制重抽 |
-| `score [--date YYYY-MM-DD] [--force]` | 判分：对每位员工拉取最近 AC 提交，判断 5 题是否在考试窗口 `[开始, 截止]` 内 AC。未到截止时间会拒绝执行（除非 `--force`） |
+| `score [--date YYYY-MM-DD] [--force]` | 判分：对每位员工拉取最近 AC 提交，判断 5 题是否在**考试当天（00:00~23:59）**内 AC（不限定考试窗口）。考试当天未结束会拒绝执行（除非 `--force`） |
 | `report [--date YYYY-MM-DD]` | 生成 `reports/日期_成绩.csv`（Excel 可直接打开）与 Markdown 报告 |
 | `notify --type problems\|results [--date] [--dry-run]` | 发送钉钉机器人通知（考题 / 成绩），webhook 取环境变量 `DINGTALK_WEBHOOK`（其次 config.json） |
 | `verify` | 校验员工名单（users.md）中所有账号是否存在 |
@@ -121,9 +121,9 @@ python3 exam_tool.py notify --type problems   # 或 results，加 --dry-run 只�
 ## 判分规则
 
 - 每道题只记 **通过 / 未通过**（AC / 未 AC）。
-- "通过" = 员工账号在 `[考试开始, 考试截止]` 时间窗口内存在该题的 AC 提交。
-- 之前就 AC 过、但考试窗口内没有再提交的题目，**不计为通过**（考试要求窗口内解决）。
-- 同一题在窗口内多次 AC 取最早一次，不重复计分。
+- "通过" = 员工账号在**考试当天（00:00~23:59，北京时间）**内存在该题的 AC 提交，**不限定考试窗口**（考试窗口仅用于安排考试时间）。
+- 之前就 AC 过、但考试当天没有再提交的题目，**不计为通过**。
+- 同一题当天多次 AC 取最早一次，不重复计分。
 
 ## 数据与接口说明
 
@@ -135,7 +135,7 @@ python3 exam_tool.py notify --type problems   # 或 results，加 --dry-run 只�
 
 ## 已知限制与建议
 
-1. **提交记录只有最近约 15 条 AC**：`recentACSubmissions` 匿名接口返回上限约 15 条最近 AC。建议**考试截止后尽快判分**（cron 已按截止后 30 分钟配置），避免员工截止后大量做题把考试提交挤出窗口。
+1. **提交记录只有最近约 15 条 AC**：`recentACSubmissions` 匿名接口返回上限约 15 条最近 AC。建议**考试当天结束后尽快判分**（cron 已配置为次日 00:30），避免员工后续大量做题把考试提交挤出窗口。
 2. **匿名接口偶发 Cloudflare 拦截**：脚本内置 4 次指数退避重试；若频繁 403，可把 `config` 所在机器 IP 换为住宅 IP，或在请求头补充 `LEETCODE_SESSION` Cookie。
 3. **员工需在考试当天使用自己的账号**提交到对应题目标题下（用 `pick` 输出的链接直接打开）。
 4. 抽题默认排除**付费题**（员工可能无会员）。

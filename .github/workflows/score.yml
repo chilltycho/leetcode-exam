@@ -1,9 +1,9 @@
 name: LeetCode Exam - Score
 
-# 每周五判分 + 报告 + 更新看板：北京时间 21:30 = UTC 13:30
+# 每周五判分 + 报告 + 更新看板：考试次日 00:30（北京时间）= 周五 16:30 UTC
 on:
   schedule:
-    - cron: '30 13 * * 5'
+    - cron: '30 16 * * 5'
   workflow_dispatch:
 
 permissions:
@@ -24,15 +24,15 @@ jobs:
       - name: 安装依赖
         run: pip install requests
 
-      - name: 判分（考试窗口内 AC 判定）
+      - name: 判分（考试当天 AC 判定，不限定窗口）
         env:
           LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
           LEETCODE_CSRF: ${{ secrets.LEETCODE_CSRF }}
-        # 手动触发自动加 --force（截止前也可测试）；定时触发不加
-        run: python3 exam_tool.py score --date "$(TZ=Asia/Shanghai date +%F)" ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }}
+        # 手动触发自动加 --force（当天未结束也可测试）；定时触发不加。不传 --date，自动取最近一次考试
+        run: python3 exam_tool.py score ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }}
 
       - name: 生成报告（CSV + Markdown）
-        run: python3 exam_tool.py report --date "$(TZ=Asia/Shanghai date +%F)"
+        run: python3 exam_tool.py report
 
       - name: 生成网页看板
         run: python3 dashboard/generate_dashboard.py

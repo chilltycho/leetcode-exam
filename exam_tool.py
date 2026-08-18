@@ -382,7 +382,7 @@ def cmd_pick(args):
 # ---------------------------------------------------------------- 判分
 
 def fetch_window_ac(user_slug, start_ts, end_ts):
-    """返回 {title_slug: submit_ts}，仅统计考试窗口 [start_ts, end_ts] 内的 AC 提交。"""
+    """返回 {title_slug: submit_ts}，仅统计 [start_ts, end_ts] 内的 AC 提交（判分时传入考试当天 00:00~23:59）。"""
     data = gql(CN_NOJ_GO, RECENT_AC_QUERY, {"userSlug": user_slug}, "recentAcSubmissions",
                referer=f"https://leetcode.cn/u/{user_slug}/")
     result = {}
@@ -404,21 +404,25 @@ def cmd_score(args):
         return 1
     exam_id, exam_date, start_ts, end_ts = exam
 
+    # 判分规则：考试当天（00:00~23:59）内的 AC 提交均计入，不限定考试窗口
+    tz = ZoneInfo(cfg["exam"]["timezone"])
+    day_start = int(datetime.fromisoformat(f"{exam_date} 00:00:00").replace(tzinfo=tz).timestamp())
+    day_end = int(datetime.fromisoformat(f"{exam_date} 23:59:59").replace(tzinfo=tz).timestamp())
+
     now_ts = int(time.time())
-    if now_ts < end_ts and not args.force:
-        tz = ZoneInfo(cfg["exam"]["timezone"])
-        print(f"[!] 现在（{datetime.fromtimestamp(now_ts, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}）早于考试截止"
-              f"（{datetime.fromtimestamp(end_ts, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}），成绩不完整，如需强制执行请加 --force")
+    if now_ts < day_end and not args.force:
+        print(f"[!] 现在（{datetime.fromtimestamp(now_ts, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}）早于考试当天结束"
+              f"（{datetime.fromtimestamp(day_end, tz).strftime('%Y-%m-%d %H:%M:%S')} {cfg['exam']['timezone']}），成绩不完整，如需强制执行请加 --force")
         conn.close()
         return 1
 
     problem_slugs = [r[0] for r in conn.execute("SELECT title_slug FROM exam_problems WHERE exam_id = ?", (exam_id,))]
-    print(f"\n===== {exam_date} 成绩统计（窗口内 AC 判定）=====")
+    print(f"\n===== {exam_date} 成绩统计（当天 AC 判定）=====")
 
     for emp in load_employees():
         name, slug = emp["name"], emp["slug"]
         try:
-            ac_map = fetch_window_ac(slug, start_ts, end_ts)
+            ac_map = fetch_window_ac(slug, day_start, day_end)
         except Exception as e:
             print(f"  [!!] {name}({slug}) 拉取失败：{e}（按未通过计）")
             ac_map = {}
