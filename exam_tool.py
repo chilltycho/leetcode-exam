@@ -404,11 +404,14 @@ def cmd_score(args):
         return 1
     exam_id, exam_date, start_ts, end_ts = exam
 
-    # 判分规则：考试当天 00:00 起，至 score_cutoff（默认 21:05）前的 AC 提交均计入
+    # 判分规则：今天 00:00 起，至 score_cutoff（默认 21:05）前的 AC 提交均计入
+    # 注意：考试题目取自 exam_date 对应的考试，但提交时间窗口固定为执行当天，
+    # 支持跨天补分场景（如考试日期为历史日期，但当天重新触发 score）。
     tz = ZoneInfo(cfg["exam"]["timezone"])
-    day_start = int(datetime.fromisoformat(f"{exam_date} 00:00:00").replace(tzinfo=tz).timestamp())
+    today = datetime.now(tz).strftime("%Y-%m-%d")
+    day_start = int(datetime.fromisoformat(f"{today} 00:00:00").replace(tzinfo=tz).timestamp())
     cutoff = cfg["exam"].get("score_cutoff", "21:05")
-    cutoff_ts = int(datetime.fromisoformat(f"{exam_date} {cutoff}").replace(tzinfo=tz).timestamp())
+    cutoff_ts = int(datetime.fromisoformat(f"{today} {cutoff}").replace(tzinfo=tz).timestamp())
 
     now_ts = int(time.time())
     if now_ts < cutoff_ts and not args.force:
