@@ -28,7 +28,7 @@ import sqlite3
 import sys
 import time
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
@@ -440,6 +440,13 @@ def cmd_score(args):
 
     conn.commit()
     conn.close()
+    # 考试完成后自动清空临时日期覆盖，避免下次仍使用旧 override
+    cfg = load_config()
+    if cfg["exam"].get("exam_date_override"):
+        cfg["exam"]["exam_date_override"] = None
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        print("[i] 已自动清空 exam_date_override，下次恢复按 day_of_week 调度")
     print("\n完成。运行 `python exam_tool.py report` 生成报告。")
 
 
@@ -621,6 +628,30 @@ def cmd_notify(args):
 
 # ---------------------------------------------------------------- 员工管理
 
+def cmd_check_day(args):
+    """检查今天是否是考试日。是则正常退出(0)，否则退出码 1（供 workflow 用 if 判断）。"""
+    cfg = load_config()
+    exam_cfg = cfg["exam"]
+    tz = ZoneInfo(exam_cfg["timezone"])
+    today = datetime.now(tz).date()
+
+    override = exam_cfg.get("exam_date_override")
+    if override:
+        exam_date = date.fromisoformat(override)
+        print(f"[i] 使用临时覆盖考试日：{exam_date}")
+    else:
+        dow = exam_cfg["day_of_week"]  # 0=周一 … 6=周日
+        days_ahead = (dow - today.weekday()) % 7
+        exam_date = today + timedelta(days=days_ahead)
+
+    if today == exam_date:
+        print(f"[✓] 今天 {today} 是考试日")
+        return 0
+    else:
+        print(f"[–] 今天 {today} 不是考试日（考试日：{exam_date}），跳过")
+        return 1
+
+
 def cmd_verify(args):
     employees = load_employees()
     print(f"校验员工账号（userProfilePublicProfile），共 {len(employees)} 人...")
@@ -670,6 +701,7 @@ def main():
     p.add_argument("--robot", choices=["main", "early"], default="main",
                    help="机器人：main=原机器人（17:00 考试信息），early=提前通知机器人（09:00 题目）")
 
+    p = sub.add_parser("check-day", help="检查今天是否是考试日（是则退出码0，否则退出码1）")
     p = sub.add_parser("verify", help="校验 config.json 中员工账号是否存在")
     p = sub.add_parser("add-employee", help="添加员工")
     p.add_argument("--name", required=True, help="员工姓名")
@@ -682,6 +714,7 @@ def main():
         "score": cmd_score,
         "report": cmd_report,
         "notify": cmd_notify,
+        "check-day": cmd_check_day,
         "verify": cmd_verify,
         "add-employee": cmd_add_employee,
     }

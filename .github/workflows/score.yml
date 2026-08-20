@@ -1,9 +1,10 @@
 name: LeetCode Exam - Score
 
-# 每周五判分 + 报告 + 更新看板：北京时间 21:05 = UTC 13:05（只统计 21:05 前提交）
+# 每天 21:05 北京时间运行，由 exam_tool.py check-day 判断今天是否是考试日
+# 考试日可通过 config.json 的 exam_date_override 临时覆盖（score 完成后自动清空）
 on:
   schedule:
-    - cron: '5 13 * * 5'
+    - cron: '5 13 * * *'
   workflow_dispatch:
 
 permissions:
@@ -24,7 +25,17 @@ jobs:
       - name: 安装依赖
         run: pip install requests
 
+      - name: 检查今天是否是考试日
+        id: check
+        run: |
+          if python3 exam_tool.py check-day; then
+            echo "is_exam_day=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_exam_day=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: 判分（考试当天 AC 判定，不限定窗口）
+        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
         env:
           LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
           LEETCODE_CSRF: ${{ secrets.LEETCODE_CSRF }}
@@ -32,16 +43,19 @@ jobs:
         run: python3 exam_tool.py score ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }}
 
       - name: 生成报告（CSV + Markdown）
+        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
         run: python3 exam_tool.py report
 
       - name: 生成网页看板
+        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
         run: python3 dashboard/generate_dashboard.py
 
-      - name: 持久化结果与看板
+      - name: 持久化结果与看板（含自动清空的 config.json）
+        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "leetcode-exam-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f exams.db problems_cache.json reports
+          git add -f exams.db problems_cache.json reports config.json
           git add dashboard/index.html
           if ! git diff --cached --quiet; then
             git commit -m "exam: 统计 $(TZ=Asia/Shanghai date +%F) 周考成绩并更新看板"
@@ -51,11 +65,13 @@ jobs:
           fi
 
       - name: 上传看板到 Pages（使用刚生成的文件）
+        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dashboard
 
       - name: 钉钉通知成绩
+        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
           DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
