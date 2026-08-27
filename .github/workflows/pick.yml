@@ -4,7 +4,7 @@ name: LeetCode Exam - Pick
 # 考试日可通过 config.json 的 exam_date_override 临时覆盖（score 完成后自动清空）
 on:
   schedule:
-    - cron: '1 1 * * 5'
+    - cron: '1 1 * * *'
   workflow_dispatch:
 
 permissions:
