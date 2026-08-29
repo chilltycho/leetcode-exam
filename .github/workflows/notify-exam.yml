@@ -33,7 +33,7 @@ jobs:
           fi
 
       - name: 钉钉通知考试信息（原机器人）
-        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.check.outputs.is_exam_day == 'true'
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
           DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}

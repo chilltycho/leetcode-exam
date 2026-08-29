@@ -33,15 +33,14 @@ jobs:
           fi
 
       - name: 抽取本周考题（2 easy + 2 medium + 1 hard，不与历史重复）
-        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.check.outputs.is_exam_day == 'true'
         env:
           LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
           LEETCODE_CSRF: ${{ secrets.LEETCODE_CSRF }}
-        # 手动触发自动加 --force（同日期已抽过时强制重抽）；定时触发不加
-        run: python3 exam_tool.py pick --date "$(TZ=Asia/Shanghai date +%F)" ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }}
+        run: python3 exam_tool.py pick --date "$(TZ=Asia/Shanghai date +%F)"
 
       - name: 持久化题库与历史（保证下轮不重复）
-        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.check.outputs.is_exam_day == 'true'
         run: |
           git config user.name "leetcode-exam-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -54,7 +53,7 @@ jobs:
           fi
 
       - name: 钉钉通知考题（提前通知机器人）
-        if: steps.check.outputs.is_exam_day == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.check.outputs.is_exam_day == 'true'
         env:
           DINGTALK_EARLY_WEBHOOK: ${{ secrets.DINGTALK_EARLY_WEBHOOK }}
           DINGTALK_EARLY_SECRET: ${{ secrets.DINGTALK_EARLY_SECRET }}
