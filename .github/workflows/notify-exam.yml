@@ -3,8 +3,6 @@ name: LeetCode Exam - Notify
 # 每天 17:00 北京时间运行，由 exam_tool.py check-day 判断今天是否是考试日
 # 考试日可通过 config.json 的 exam_date_override 临时覆盖（score 完成后自动清空）
 on:
-  schedule:
-    - cron: '0 9 * * *'
   workflow_dispatch:
 
 permissions:
