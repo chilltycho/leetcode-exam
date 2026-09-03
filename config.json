@@ -2,7 +2,7 @@
   "employees": [],
   "exam": {
     "day_of_week": 4,
-    "exam_date_override": "2026-09-03",
+    "exam_date_override": null,
     "start_time": "17:00",
     "end_time": "21:00",
     "score_cutoff": "21:05",
