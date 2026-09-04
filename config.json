@@ -3,6 +3,7 @@
   "exam": {
     "day_of_week": 4,
     "exam_date_override": null,
+    "skip_week": "2026-W36",
     "start_time": "17:00",
     "end_time": "21:00",
     "score_cutoff": "21:05",

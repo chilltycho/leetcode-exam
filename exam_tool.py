@@ -447,6 +447,16 @@ def cmd_score(args):
     cfg = load_config()
     if cfg["exam"].get("exam_date_override"):
         cfg["exam"]["exam_date_override"] = None
+        # 临时调整过考试日（如提前到周四），score 完成后跳过本周正常考试日
+        tz2 = ZoneInfo(cfg["exam"]["timezone"])
+        today2 = datetime.now(tz2).date()
+        dow = cfg["exam"]["day_of_week"]
+        days_ahead = (dow - today2.weekday()) % 7
+        # days_ahead==0 表示今天本来就是正常考试日（不需要跳过）；否则跳过本周
+        if days_ahead > 0:
+            # ISO 周号格式：YYYY-Www，如 "2026-W36"
+            cfg["exam"]["skip_week"] = today2.strftime("%G-W%V")
+            print(f"[i] 已设置 skip_week={cfg['exam']['skip_week']}，本周正常考试日（周{dow+1}）将自动跳过")
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
         print("[i] 已自动清空 exam_date_override，下次恢复按 day_of_week 调度")
@@ -637,6 +647,20 @@ def cmd_check_day(args):
     exam_cfg = cfg["exam"]
     tz = ZoneInfo(exam_cfg["timezone"])
     today = datetime.now(tz).date()
+
+    # 检查 skip_week：若本周已临时考过，跳过正常考试日
+    skip_week = exam_cfg.get("skip_week")
+    if skip_week:
+        this_week = today.strftime("%G-W%V")
+        if this_week == skip_week:
+            print(f"[–] 本周（{skip_week}）已进行过临时考试，跳过正常考试日")
+            return 1
+        else:
+            # 过期了，自动清空
+            cfg["exam"]["skip_week"] = None
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
+            print(f"[i] skip_week={skip_week} 已过期，自动清空")
 
     override = exam_cfg.get("exam_date_override")
     if override:
