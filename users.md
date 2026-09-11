@@ -17,3 +17,4 @@
 龚源昊 https://leetcode.cn/u/chong-ming-zhi-chu-you-ji/
 周博通 https://leetcode.cn/u/huang-li-niao/
 李梓文 https://leetcode.cn/u/stupefied-wilsono3f/
+李诗琪 https://leetcode.cn/u/dazzling-6oldwasserkhb/
