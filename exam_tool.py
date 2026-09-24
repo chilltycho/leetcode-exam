@@ -648,6 +648,21 @@ def cmd_check_day(args):
     tz = ZoneInfo(exam_cfg["timezone"])
     today = datetime.now(tz).date()
 
+    # 检查节假日：从 GitHub holiday-cn 获取当年节假日数据
+    year = today.year
+    holiday_url = f"https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/{year}.json"
+    try:
+        resp = requests.get(holiday_url, timeout=5)
+        if resp.status_code == 200:
+            holiday_data = resp.json()
+            today_str = today.isoformat()
+            for day in holiday_data.get("days", []):
+                if day["date"] == today_str and day["isOffDay"]:
+                    print(f"[–] 今天 {today} 是法定节假日（{day['name']}），跳过考试")
+                    return 1
+    except Exception as e:
+        print(f"[!] 节假日查询失败（{e}），继续执行")
+
     # 检查 skip_week：若本周已临时考过，跳过正常考试日
     skip_week = exam_cfg.get("skip_week")
     if skip_week:
